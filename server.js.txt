@@ -1,0 +1,42 @@
+import crypto from "crypto";
+import fetch from "node-fetch";
+
+const BINANCE_API_KEY = process.env.BINANCE_API_KEY;
+const BINANCE_API_SECRET = process.env.BINANCE_API_SECRET;
+
+async function createBinanceOrder(amount, currency, userEmail) {
+  const url = "https://bpay.binanceapi.com/binancepay/openapi/v3/order";
+
+  const data = {
+    merchantTradeNo: "ORDER_" + Date.now(),
+    orderAmount: amount,
+    currency: currency,
+    goods: {
+      goodsType: "01",
+      goodsCategory: "D000",
+      referenceGoodsId: "ticket001",
+      goodsName: "GOLD LOTO Ticket"
+    }
+  };
+
+  // Sign request
+  const payload = JSON.stringify(data);
+  const nonce = Date.now().toString();
+  const signature = crypto
+    .createHmac("sha512", BINANCE_API_SECRET)
+    .update(payload + nonce)
+    .digest("hex");
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "BinancePay-Timestamp": nonce,
+      "BinancePay-Certificate-SN": BINANCE_API_KEY,
+      "BinancePay-Signature": signature,
+    },
+    body: payload
+  });
+
+  return await res.json();
+}
