@@ -1,54 +1,87 @@
-// server.js
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
+import express from "express";
+import cors from "cors";
+import axios from "axios";
+import dotenv from "dotenv";
 
-// Create Express app
+dotenv.config();
+
 const app = express();
+app.use(cors());
+app.use(express.json());
 
-// Middleware
-app.use(cors()); // allow cross-origin requests
-app.use(bodyParser.json()); // parse JSON bodies
+const PORT = process.env.PORT || 4242;
+const NOWPAYMENTS_API_KEY = process.env.NOWPAYMENTS_API_KEY;
+const CURRENCY = process.env.CURRENCY || "AZN";
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.send('GOLD LOTO backend is running.');
-});
-
-// Helper function to generate random lottery codes
-function generateCodes(count = 8) {
+// Generate 8 random codes
+function generateCodes() {
   const codes = [];
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  for (let i = 0; i < count; i++) {
-    let code = '';
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  for (let i = 0; i < 8; i++) {
+    let code = "";
     for (let j = 0; j < 6; j++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+      code += chars[Math.floor(Math.random() * chars.length)];
     }
     codes.push(code);
   }
   return codes;
 }
 
-// /buy endpoint
-app.post('/buy', (req, res) => {
+// Prices for your tickets (AZN)
+const ticketPrices = {
+  "Bürünc - ₼2": 2,
+  "Gümüş - ₼4": 4,
+  "Qızıl - ₼6": 6,
+};
+
+// Create payment endpoint
+app.post("/buy", async (req, res) => {
   const { name, email, ticket } = req.body;
 
-  if (!name || !email || !ticket) {
-    return res.status(400).json({ success: false, message: 'Missing required fields.' });
+  if (!ticketPrices[ticket]) {
+    return res.status(400).json({ success: false, message: "Invalid ticket" });
   }
 
-  // Here you can add database logic to save the purchase if needed
+  const amount = ticketPrices[ticket];
 
-  const codes = generateCodes(8);
+  try {
+    // Create NOWPayments payment
+    const response = await axios.post(
+      "https://api.nowpayments.io/v1/payment",
+      {
+        price_amount: amount,
+        price_currency: CURRENCY, // AZN
+        pay_currency: "usdt", // user can pay in crypto (e.g., USDT)
+        order_id: Date.now().toString(),
+        order_description: `${ticket} for ${name} (${email})`,
+        ipn_callback_url: "https://goldloto-az.onrender.com/ipn", // webhook later
+      },
+      {
+        headers: {
+          "x-api-key": NOWPAYMENTS_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-  res.json({
-    success: true,
-    codes: codes
-  });
+    const payment = response.data;
+
+    // Respond with payment URL
+    res.json({
+      success: true,
+      payment_url: payment.invoice_url,
+    });
+  } catch (err) {
+    console.error("NOWPayments error:", err.response?.data || err.message);
+    res.status(500).json({ success: false, message: "Payment failed" });
+  }
 });
 
-// Listen on port (Render sets process.env.PORT)
-const PORT = process.env.PORT || 4242;
+// Simple test route
+app.get("/", (req, res) => {
+  res.send("Backend is running ✅");
+});
+
 app.listen(PORT, () => {
-  console.log(`GOLD LOTO backend running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
