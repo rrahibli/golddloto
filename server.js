@@ -1,87 +1,80 @@
-import express from "express";
-import cors from "cors";
-import axios from "axios";
-import dotenv from "dotenv";
-
-dotenv.config();
+// server.js
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const axios = require('axios');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-
 const PORT = process.env.PORT || 4242;
-const NOWPAYMENTS_API_KEY = process.env.NOWPAYMENTS_API_KEY;
-const CURRENCY = process.env.CURRENCY || "AZN";
+const NOWPAYMENTS_API_KEY = process.env.NOWPAYMENTS_API_KEY; // Add your API key in .env
 
-// Generate 8 random codes
+app.use(cors());
+app.use(bodyParser.json());
+
+// Ticket prices in AZN
+const ticketPrices = {
+  "Bürünc - ₼2": 2,
+  "Gümüş - ₼4": 4,
+  "Qızıl - ₼6": 6
+};
+
+// Helper: generate 8 random lottery codes
 function generateCodes() {
   const codes = [];
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   for (let i = 0; i < 8; i++) {
-    let code = "";
-    for (let j = 0; j < 6; j++) {
-      code += chars[Math.floor(Math.random() * chars.length)];
-    }
-    codes.push(code);
+    codes.push(Math.random().toString(36).substring(2, 10).toUpperCase());
   }
   return codes;
 }
 
-// Prices for your tickets (AZN)
-const ticketPrices = {
-  "Bürünc - ₼2": 2,
-  "Gümüş - ₼4": 4,
-  "Qızıl - ₼6": 6,
-};
-
-// Create payment endpoint
-app.post("/buy", async (req, res) => {
+// Endpoint: Buy ticket
+app.post('/buy', async (req, res) => {
   const { name, email, ticket } = req.body;
 
-  if (!ticketPrices[ticket]) {
-    return res.status(400).json({ success: false, message: "Invalid ticket" });
+  if (!name || !email || !ticket) {
+    return res.status(400).json({ success: false, message: 'Missing fields' });
   }
 
-  const amount = ticketPrices[ticket];
+  const price = ticketPrices[ticket];
+  if (!price) return res.status(400).json({ success: false, message: 'Invalid ticket' });
 
   try {
-    // Create NOWPayments payment
-    const response = await axios.post(
-      "https://api.nowpayments.io/v1/payment",
-      {
-        price_amount: amount,
-        price_currency: CURRENCY, // AZN
-        pay_currency: "usdt", // user can pay in crypto (e.g., USDT)
-        order_id: Date.now().toString(),
-        order_description: `${ticket} for ${name} (${email})`,
-        ipn_callback_url: "https://goldloto-az.onrender.com/ipn", // webhook later
-      },
-      {
-        headers: {
-          "x-api-key": NOWPAYMENTS_API_KEY,
-          "Content-Type": "application/json",
-        },
+    // Create NowPayments invoice
+    const invoice = await axios.post('https://api.nowpayments.io/v1/invoice', {
+      price_amount: price,
+      price_currency: 'AZN',
+      pay_currency: 'AZN', // Customer pays in AZN
+      order_id: Math.floor(Math.random() * 1000000), // unique order id
+      order_description: `GOLD LOTO - ${ticket}`,
+      ipn_callback_url: '', // optional: webhook URL
+      buyer_email: email
+    }, {
+      headers: {
+        'x-api-key': NOWPAYMENTS_API_KEY,
+        'Content-Type': 'application/json'
       }
-    );
-
-    const payment = response.data;
-
-    // Respond with payment URL
-    res.json({
-      success: true,
-      payment_url: payment.invoice_url,
     });
+
+    const codes = generateCodes();
+
+    return res.json({
+      success: true,
+      invoice_url: invoice.data.invoice_url,
+      codes
+    });
+
   } catch (err) {
-    console.error("NOWPayments error:", err.response?.data || err.message);
-    res.status(500).json({ success: false, message: "Payment failed" });
+    console.error(err.response?.data || err.message);
+    return res.status(500).json({ success: false, message: 'Payment creation failed' });
   }
 });
 
-// Simple test route
-app.get("/", (req, res) => {
-  res.send("Backend is running ✅");
+// Health check
+app.get('/', (req, res) => {
+  res.send('GOLD LOTO backend is running');
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
