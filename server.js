@@ -6,7 +6,7 @@ const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 4242;
-const NOWPAYMENTS_API_KEY = process.env.NOWPAYMENTS_API_KEY; // Set this in Render Environment tab
+const NOWPAYMENTS_API_KEY = process.env.NOWPAYMENTS_API_KEY;
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -39,14 +39,14 @@ app.post('/buy', async (req, res) => {
   if (!price) return res.status(400).json({ success: false, message: 'Invalid ticket' });
 
   try {
-    // Create NowPayments invoice (without buyer_email)
+    // Create NowPayments invoice (pay_currency must be crypto, e.g. USDT)
     const invoice = await axios.post('https://api.nowpayments.io/v1/invoice', {
       price_amount: price,
       price_currency: 'AZN',
-      pay_currency: 'AZN',
+      pay_currency: 'USDT', // <-- FIXED: must be a crypto symbol
       order_id: Math.floor(Math.random() * 1000000),
       order_description: `GOLD LOTO - ${ticket}`,
-      ipn_callback_url: 'https://golddloto-5.onrender.com/ipn'
+      ipn_callback_url: 'https://golddloto-6.onrender.com/ipn'
     }, {
       headers: {
         'x-api-key': NOWPAYMENTS_API_KEY,
