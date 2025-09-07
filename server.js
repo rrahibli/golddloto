@@ -47,7 +47,7 @@ app.post('/buy', async (req, res) => {
       pay_currency: 'AZN', // Customer pays in AZN
       order_id: Math.floor(Math.random() * 1000000), // unique order id
       order_description: `GOLD LOTO - ${ticket}`,
-      ipn_callback_url: '', // optional: webhook URL
+      ipn_callback_url: 'https://golddloto-1.onrender.com/ipn', // <-- FIXED: must not be empty
       buyer_email: email
     }, {
       headers: {
@@ -70,11 +70,15 @@ app.post('/buy', async (req, res) => {
   }
 });
 
+// Dummy IPN endpoint for NOWPayments
+app.post('/ipn', (req, res) => {
+  res.status(200).send('OK');
+});
+
 // Health check
 app.get('/', (req, res) => {
   res.send('GOLD LOTO backend is running');
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+  console.log(`Server
