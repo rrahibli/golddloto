@@ -43,7 +43,7 @@ app.post('/buy', async (req, res) => {
     const invoice = await axios.post('https://api.nowpayments.io/v1/invoice', {
       price_amount: price,
       price_currency: 'AZN',
-      pay_currency: 'USDT', // <-- FIXED: must be a crypto symbol
+      pay_currency: 'BTC', // <-- FIXED: must be a crypto symbol
       order_id: Math.floor(Math.random() * 1000000),
       order_description: `GOLD LOTO - ${ticket}`,
       ipn_callback_url: 'https://golddloto-6.onrender.com/ipn'
